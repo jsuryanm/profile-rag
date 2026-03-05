@@ -23,5 +23,9 @@ scikit-learn
 mcp 
 mcp-cli
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
+requests
+pydantic-settings
+playwright
+beautifulsoup4
