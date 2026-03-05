@@ -1,0 +1,35 @@
+[project]
+name = "profile-rag"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "chromadb>=1.5.2",
+    "fastapi>=0.135.1",
+    "gradio>=6.8.0",
+    "groq>=1.0.0",
+    "huggingface-hub>=0.36.2",
+    "ipykernel>=7.2.0",
+    "llama-hub>=0.0.79.post1",
+    "llama-index>=0.14.15",
+    "llama-index-embeddings-huggingface>=0.6.1",
+    "llama-index-llms-groq>=0.4.1",
+    "llama-index-readers-web>=0.5.6",
+    "llama-index-tools-mcp>=0.4.8",
+    "llama-index-vector-stores-chroma>=0.5.5",
+    "mcp>=1.26.0",
+    "mcp-cli>=0.19",
+    "notebook>=7.5.4",
+    "pydantic>=2.12.5",
+    "pypdf>=6.7.5",
+    "python-dotenv>=1.2.2",
+    "requests>=2.32.5",
+    "scikit-learn>=1.8.0",
+    "scipy>=1.17.1",
+    "sentence-transformers>=5.2.3",
+    "torch>=2.10.0",
+    "transformers>=4.57.6",
+    "uvicorn>=0.41.0",
+    "wget>=3.2",
+]
