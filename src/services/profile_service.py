@@ -1,17 +1,18 @@
 from src.config.logger import logger
 from mcp_client.linkedin_client import fetch_profile_agent
 from src.processing.data_processing import process_profile
-from src.rag.query_engine import (
-    build_router_query_engine,
-    build_agentic_rag,
-    query_profile,
-    query_profile_agentic
-)
+from src.rag.query_engine import (build_router_query_engine,
+                                  build_agentic_rag,
+                                  query_profile,
+                                  query_profile_agentic)
+
+from llama_index.core.memory import ChatMemoryBuffer
 
 _state = {
     "router": None,
     "agent": None,
     "subject_name": None,
+    "memory":None
 }
 
 
@@ -36,7 +37,12 @@ async def load_profile(linkedin_url: str) -> dict:
     )
 
     router = build_router_query_engine(nodes, subject_name=subject_name)
-    agent = build_agentic_rag(router, subject_name=subject_name)
+
+    if _state["subject_name"] != subject_name:
+        _state["memory"] = ChatMemoryBuffer.from_defaults(token_limit=4096)
+        logger.info("New profile detected, conversation memory cleared")
+
+    agent = build_agentic_rag(router, subject_name=subject_name,memory=_state["memory"])
 
     _state["router"] = router
     _state["agent"] = agent

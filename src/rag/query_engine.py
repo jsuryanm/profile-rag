@@ -87,7 +87,9 @@ def build_router_query_engine(nodes: list, subject_name: str = "this person") ->
     return router
 
 
-def build_agentic_rag(router: RouterQueryEngine, subject_name: str = "this person") -> FunctionAgent:
+def build_agentic_rag(router: RouterQueryEngine,
+                      subject_name: str = "this person",
+                      memory: ChatMemoryBuffer =  None) -> FunctionAgent:
     """
     Wraps the RouterQueryEngine as a single tool inside a FunctionAgent.
     The agent adds memory for follow-up questions.
@@ -103,7 +105,8 @@ def build_agentic_rag(router: RouterQueryEngine, subject_name: str = "this perso
         like reports, icebreakers, and networking tips. Always use this tool."""
     )
 
-    memory = ChatMemoryBuffer.from_defaults(token_limit=4096)
+    if memory is None:
+        memory = ChatMemoryBuffer.from_defaults(token_limit=4096)
 
     agent = FunctionAgent(
         tools=[router_tool],

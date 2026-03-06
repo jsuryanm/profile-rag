@@ -4,7 +4,9 @@ import logging
 
 logging.basicConfig(level=logging.INFO,
                     format="[%(asctime)s]: %(message)s")
+
 project_name = "src"
+
 list_of_files = [f"{project_name}/__init__.py",
                  f"{project_name}/processing/__init__.py",
                  f"{project_name}/processing/data_processing.py",
@@ -19,7 +21,13 @@ list_of_files = [f"{project_name}/__init__.py",
                  f"mcp_client/__init__.py",
                  f"mcp_client/linkedin_client.py",
                  f"api/__init__.py",
-                 f"api/app.py"]
+                 f"api/app.py",
+                 f"tests/__init__.py",
+                 f"tests/test_mcp_client.py",
+                 f"tests/test_mcp_tools.py",
+                 f"tests/test_rag.py",
+                 f"tests/test_router.py",
+                 f"tests/test_process_profile.py",]
 
 for file_path in list_of_files:
     file_path = Path(file_path)
