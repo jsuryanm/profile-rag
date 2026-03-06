@@ -1,4 +1,3 @@
-# test_mcp_client.py
 import asyncio
 from mcp_client.linkedin_client import fetch_profile_agent
 

@@ -1,4 +1,3 @@
-# test_mcp_tools.py
 import asyncio
 from llama_index.tools.mcp import BasicMCPClient, McpToolSpec
 from src.config.settings import settings

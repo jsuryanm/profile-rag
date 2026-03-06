@@ -5,7 +5,7 @@ from src.rag.query_engine import build_router_query_engine, query_profile
 
 
 async def main():
-    linkedin_url = "https://www.linkedin.com/in/mrkchowdary/"  # swap for any real URL
+    linkedin_url = "https://www.linkedin.com/in/mrkchowdary/"  
 
     print(f"\nFetching profile: {linkedin_url}")
     profile_data = await fetch_profile_agent(

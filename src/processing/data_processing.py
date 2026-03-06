@@ -20,7 +20,8 @@ def load_json_documents(profile_data: dict) -> list:
         tmp_path = Path(tmp.name)
     
     documents = reader.load_data(input_file=tmp_path)
-    # converts json to documents
+    # converts json into LlamaIndex Document objects 
+    
     tmp_path.unlink()
 
     logger.info(f"JSON Reader loaded {len(documents)} JSON documents from profile data")
