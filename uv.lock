@@ -2652,6 +2652,18 @@ wheels = [
 ]
 
 [[package]]
+name = "llama-index-readers-json"
+version = "0.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "llama-index-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2f/fb/3c01781f1683453a5607ddebd535348f9d90940d50648d5304d6ca6a2c53/llama_index_readers_json-0.4.2.tar.gz", hash = "sha256:820c294d49df3f5699840c99d704eca0da56e7676dd32e7fe7d253e9149430d4", size = 5028, upload-time = "2025-10-07T03:58:56.726Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7f/cb/381405e479e4a6a4a5ead1c9b7970d20bd25912f8995b117a916bcd1c252/llama_index_readers_json-0.4.2-py3-none-any.whl", hash = "sha256:4e8e10ca9e028e0d97128a32c94ffaf13c1270c68e43716269fea09c18308931", size = 4761, upload-time = "2025-10-07T03:58:56.004Z" },
+]
+
+[[package]]
 name = "llama-index-readers-llama-parse"
 version = "0.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4093,6 +4105,7 @@ dependencies = [
     { name = "llama-index" },
     { name = "llama-index-embeddings-huggingface" },
     { name = "llama-index-llms-groq" },
+    { name = "llama-index-readers-json" },
     { name = "llama-index-readers-web" },
     { name = "llama-index-tools-mcp" },
     { name = "llama-index-vector-stores-chroma" },
@@ -4127,6 +4140,7 @@ requires-dist = [
     { name = "llama-index", specifier = ">=0.14.15" },
     { name = "llama-index-embeddings-huggingface", specifier = ">=0.6.1" },
     { name = "llama-index-llms-groq", specifier = ">=0.4.1" },
+    { name = "llama-index-readers-json", specifier = ">=0.4.2" },
     { name = "llama-index-readers-web", specifier = ">=0.5.6" },
     { name = "llama-index-tools-mcp", specifier = ">=0.4.8" },
     { name = "llama-index-vector-stores-chroma", specifier = ">=0.5.5" },

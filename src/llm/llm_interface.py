@@ -1,8 +1,6 @@
 from llama_index.llms.groq import Groq 
 from src.config.settings import settings
-import logging 
-
-logger = logging.getLogger(__name__)
+from src.config.logger import logger 
 
 _llm_instance = None 
 
@@ -16,7 +14,7 @@ def get_llm(temperature: float = None) -> Groq:
     temp = temperature if temperature is not None else settings.temperature
 
     if _llm_instance is None:
-        logger.info(f"Initializing Groq LLM: {settings.temperature}")
+        logger.info(f"Initializing Groq LLM: {settings.llm_model_id} temperature:{settings.temperature}")
         _llm_instance = Groq(model=settings.llm_model_id,
                              temperature=temp,
                              api_key=settings.groq_api_key)

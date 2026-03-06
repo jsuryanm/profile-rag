@@ -6,7 +6,7 @@ from pydantic import Field, ConfigDict
 class Settings(BaseSettings):
     # LLM
     groq_api_key: str = Field(...,validation_alias="GROQ_API_KEY")
-    llm_model_id: str = "openai/gpt-oss-20b"
+    llm_model_id: str = "llama-3.3-70b-versatile"
     model_config = ConfigDict(env_file=".env",extra="ignore")
     temperature: float = 0.0 
 
@@ -14,12 +14,13 @@ class Settings(BaseSettings):
     embedding_model_id: str = "BAAI/bge-small-en-v1.5"
 
     # RAG 
-    chunk_size: int = 500 
+    chunk_size: int = 256
+    chunk_overlap: int = 40
     similarity_top_k: int = 5 
 
     # MCP SERVER
-    mcp_server_url: str = "https://localhost:8001/sse"
-    mcp_server_port: int = 8001
+    mcp_server_url: str = "http://127.0.0.1:8080/mcp"
+    mcp_server_port: int = 8080
 
     # mock data safety fallback 
     mock_data_url: str = (

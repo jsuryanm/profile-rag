@@ -16,8 +16,8 @@ list_of_files = [f"{project_name}/__init__.py",
                  f"{project_name}/services/profile_service.py",
                  f"{project_name}/config/__init__.py",
                  f"{project_name}/config/settings.py",
-                 f"mcp_server/__init__.py",
-                 f"mcp_server/server.py",
+                 f"mcp_client/__init__.py",
+                 f"mcp_client/linkedin_client.py",
                  f"api/__init__.py",
                  f"api/app.py"]
 

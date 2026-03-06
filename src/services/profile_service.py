@@ -1,22 +1,78 @@
-import requests 
-import logging 
-from src.config.settings import MCP_SERVER_URL
+from src.config.logger import logger
+from mcp_client.linkedin_client import fetch_profile_agent
+from src.processing.data_processing import process_profile
+from src.rag.query_engine import (
+    build_router_query_engine,
+    build_agentic_rag,
+    query_profile,
+    query_profile_agentic
+)
 
-logger = logging.getLogger(__name__)
+_state = {
+    "router": None,
+    "agent": None,
+    "subject_name": None,
+}
 
-class ProfileService:
 
-    def fetch_profile(self,profile_url: str):
-        """Fetch profile  data from MCP server"""
+async def load_profile(linkedin_url: str) -> dict:
+    """Fetch, chunk, index, and build router + agent."""
+    logger.info(f"Loading profile for URL: {linkedin_url}")
 
-        try:
-            response = requests.post(f"{MCP_SERVER_URL}/profile",
-                                     json={"profile_url":profile_url},
-                                     timeout=30)
-            
-            response.raise_for_status()
-            
-            return response.json()
-        except Exception as e:
-            logger.error(f"Failed to fetch profile: {e}")
-            return None
+    profile_data = await fetch_profile_agent(
+        user_query="Fetch the full LinkedIn profile including experience and education",
+        linkedin_url=linkedin_url
+    )
+
+    if not profile_data or "raw" in profile_data:
+        raise ValueError(f"Failed to fetch a valid profile from: {linkedin_url}")
+
+    subject_name = profile_data.get("name", "Unknown")
+    logger.info(f"Successfully fetched profile for: {subject_name}")
+
+    nodes = process_profile(
+        profile_data,
+        metadata={"source": "linkedin", "url": linkedin_url}
+    )
+
+    router = build_router_query_engine(nodes, subject_name=subject_name)
+    agent = build_agentic_rag(router, subject_name=subject_name)
+
+    _state["router"] = router
+    _state["agent"] = agent
+    _state["subject_name"] = subject_name
+
+    return {
+        "status": "loaded",
+        "name": subject_name,
+        "headline": profile_data.get("headline", ""),
+        "location": profile_data.get("location", ""),
+        "chunks_indexed": len(nodes),
+    }
+
+
+async def ask_profile(question: str, use_agent: bool = False) -> dict:
+    """
+    Query the loaded profile.
+    - use_agent=False (default): stateless router query, no memory
+    - use_agent=True: agentic query with conversation memory
+    """
+    if _state["router"] is None:
+        raise ValueError("No profile loaded. Call POST /profile first.")
+
+    if use_agent:
+        answer = await query_profile_agentic(_state["agent"], question)
+        mode = "agentic"
+    else:
+        answer = await query_profile(
+            _state["router"],
+            question,
+            subject_name=_state["subject_name"]
+        )
+        mode = "router"
+
+    return {"answer": answer, "mode": mode}
+
+
+def get_loaded_profile_name() -> str | None:
+    return _state["subject_name"]
