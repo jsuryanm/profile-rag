@@ -57,6 +57,29 @@ class Settings(BaseSettings):
     Context: {context_str}
     """
 
+    resume_qa_template: str = """
+    You are an expert resume analyst. Answer the question using ONLY the resume content below.
+    Focus on extracting specific, factual information.
+    If the information is not in the resume, say: "This information is not in the resume."
+
+    Resume Content: {context_str}
+    Question: {query_str}
+    """
+
+    job_qa_template: str = """
+    You are an expert at analysing job postings. Answer the question using ONLY the job posting content below.
+    Extract precise requirements, skills, and qualifications as stated.
+    If the information is not in the job posting, say: "This is not specified in the job posting."
+
+    Job Posting Content: {context_str}
+    Question: {query_str}
+    """
+
+
+
+
+
+
      
 
 

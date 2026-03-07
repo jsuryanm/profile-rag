@@ -18,6 +18,24 @@ _state = {
     "memory":None
 }
 
+def log_eval_result(task: asyncio.Task) -> None:
+    """
+    asyncio.create_task() swallows exceptions silently by default —
+    if evaluate_router() raises,we won't know. This callback
+    catches and logs any exception so failures are visible in logs
+    without crashing the main request.
+    """
+    if task.cancelled():
+        logger.warning("[Eval] Background evaluation task was cancelled")
+    elif task.exception():
+        logger.error(
+            f"[Eval] Background evaluation task raised an exception: "
+            f"{task.exception()}"
+        )
+    else:
+        logger.info("[Eval] Background evaluation task completed successfully")
+
+
 
 async def load_profile(linkedin_url: str) -> dict:
     """Fetch, chunk, index, and build router + agent."""
@@ -51,7 +69,8 @@ async def load_profile(linkedin_url: str) -> dict:
     _state["agent"] = agent
     _state["subject_name"] = subject_name
     
-    asyncio.create_task(evaluate_router(router, subject_name=subject_name))
+    eval_task = asyncio.create_task(evaluate_router(router, subject_name=subject_name))
+    eval_task.add_done_callback(log_eval_result)
 
     return {
         "status": "loaded",

@@ -14,13 +14,23 @@ def get_llm(temperature: float = None) -> Groq:
     temp = temperature if temperature is not None else settings.temperature
 
     if _llm_instance is None:
-        logger.info(f"Initializing Groq LLM: {settings.llm_model_id} temperature:{settings.temperature}")
-        _llm_instance = Groq(model=settings.llm_model_id,
-                             temperature=temp,
-                             api_key=settings.groq_api_key,
-                             max_retries=3,
-                             resuse_client=True)
-    
+        if _llm_instance.temperature == temp:
+            return _llm_instance
+        else:
+            logger.info(
+                f"Temperature override ({temp}) differs from cached instance "
+                f"({_llm_instance.temperature}) — creating new instance"
+            )
+
+    logger.info(
+        f"Initializing Groq LLM: {settings.llm_model_id} | temperature: {temp}"
+    )
+
+    _llm_instance = Groq(model=settings.llm_model_id,
+                         temperature=temp,
+                         api_key=settings.groq_api_key,
+                         max_retries=3,
+                         reuse_client=True)
     return _llm_instance
 
 def reset_llm() -> None:

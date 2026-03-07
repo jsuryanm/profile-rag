@@ -18,8 +18,10 @@ async def get_linkedin_agent() -> FunctionAgent:
     mcp_tool_spec = McpToolSpec(client=mcp_client)
     tools = await mcp_tool_spec.to_tool_list_async()
 
-    logger.info(f"Loaded {len(tools)} tools from LinkedIn MCP server: {[t.metadata for t in tools]}")
-
+    logger.info(
+        f"Loaded {len(tools)} tools from LinkedIn MCP server: "
+        f"{[t.metadata.name for t in tools]}"
+    )
     llm = get_llm()
     agent = FunctionAgent(tools=tools,
                           llm=llm,
