@@ -9,7 +9,7 @@ async def main():
     # 1. Fetch profile
     profile_data = await fetch_profile_agent(
         user_query="Fetch the full LinkedIn profile including experience and education",
-        linkedin_url="https://www.linkedin.com/in/mrkchowdary/"
+        linkedin_url="https://www.linkedin.com/in/satyanadella/"
     )
 
     # 2. Guard against failed fetch before doing anything else
