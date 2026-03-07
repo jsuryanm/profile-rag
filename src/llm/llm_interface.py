@@ -17,7 +17,9 @@ def get_llm(temperature: float = None) -> Groq:
         logger.info(f"Initializing Groq LLM: {settings.llm_model_id} temperature:{settings.temperature}")
         _llm_instance = Groq(model=settings.llm_model_id,
                              temperature=temp,
-                             api_key=settings.groq_api_key)
+                             api_key=settings.groq_api_key,
+                             max_retries=3,
+                             resuse_client=True)
     
     return _llm_instance
 

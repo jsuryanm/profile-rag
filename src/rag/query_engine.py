@@ -61,6 +61,8 @@ def build_router_query_engine(nodes: list, subject_name: str = "this person") ->
         text_qa_template=report_prompt
     )
 
+    # QueryEngineTool is a wrapper that turns a query engine into a tool 
+    # that an agent can call
     qa_tool = QueryEngineTool.from_defaults(
         query_engine=qa_engine,
         name="profile_qa",
@@ -76,6 +78,8 @@ def build_router_query_engine(nodes: list, subject_name: str = "this person") ->
         Examples: full career summary, icebreaker questions, networking tips, 
         professional overview, or any request asking for multiple insights at once."""
     )
+
+    # RouterQueryEngine is a meta query engine that decides which tool should answer a question
 
     router = RouterQueryEngine(
         selector=LLMSingleSelector.from_defaults(llm=llm),
@@ -143,3 +147,4 @@ async def query_profile_agentic(agent: FunctionAgent, question: str) -> str:
         early_stopping_method="generate"
     )
     return str(response)
+

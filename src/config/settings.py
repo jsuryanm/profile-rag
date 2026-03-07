@@ -14,9 +14,9 @@ class Settings(BaseSettings):
     embedding_model_id: str = "BAAI/bge-small-en-v1.5"
 
     # RAG 
-    chunk_size: int = 256
-    chunk_overlap: int = 40
-    similarity_top_k: int = 5 
+    chunk_size: int = 1024
+    chunk_overlap: int = 128
+    similarity_top_k: int = 3
 
     # MCP SERVER
     mcp_server_url: str = "http://127.0.0.1:8080/mcp"

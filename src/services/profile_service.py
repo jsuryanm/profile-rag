@@ -6,7 +6,10 @@ from src.rag.query_engine import (build_router_query_engine,
                                   query_profile,
                                   query_profile_agentic)
 
+from src.rag.eval import evaluate_router
+
 from llama_index.core.memory import ChatMemoryBuffer
+import asyncio
 
 _state = {
     "router": None,
@@ -47,6 +50,8 @@ async def load_profile(linkedin_url: str) -> dict:
     _state["router"] = router
     _state["agent"] = agent
     _state["subject_name"] = subject_name
+    
+    asyncio.create_task(evaluate_router(router, subject_name=subject_name))
 
     return {
         "status": "loaded",

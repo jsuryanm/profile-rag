@@ -15,7 +15,6 @@ async def get_linkedin_agent() -> FunctionAgent:
     FunctionAgent that can call LinkedIn tools based on user intent.
     """
     mcp_client = BasicMCPClient(settings.mcp_server_url)
-
     mcp_tool_spec = McpToolSpec(client=mcp_client)
     tools = await mcp_tool_spec.to_tool_list_async()
 
