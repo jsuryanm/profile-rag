@@ -11,6 +11,44 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from src.config.settings import settings
 from src.config.logger import logger
 from src.llm.llm_interface import get_llm
+# Add to imports at the top
+from llama_index.core.prompts import PromptTemplate
+from src.schemas.agent_outputs import (
+    ProfileFactsOutput,
+    ProfileReportOutput,
+    ProfileAnswerOutput,
+)
+
+# Add these prompt templates near the top of the file
+_FACTS_PROMPT = PromptTemplate(
+    """You are an AI assistant helping someone learn about a professional contact.
+
+Profile context:
+{context_str}
+
+Generate exactly 3 interesting facts about this person's career or education.
+Each fact should be specific and grounded in the context above."""
+)
+
+_REPORT_PROMPT = PromptTemplate(
+    """You are a professional career analyst.
+
+Profile context:
+{context_str}
+
+Generate a complete structured profile report including a career summary,
+3 icebreaker questions, and networking tips.
+Base everything strictly on the context provided."""
+)
+
+_QA_PROMPT = PromptTemplate(
+    """You are an AI assistant. Answer the question using ONLY the profile context below.
+If the answer is not available, say so clearly.
+
+Profile context:
+{context_str}
+Question: {query_str}"""
+)
 
 _chroma_client = chromadb.PersistentClient("./chroma_db")
 
@@ -129,22 +167,57 @@ def build_agentic_rag(router: RouterQueryEngine,
     return agent
 
 
-async def query_profile(router: RouterQueryEngine, question: str, subject_name: str = None) -> str:
-    """Direct router query — no agent, no memory. For stateless single questions."""
-    if subject_name:
-        question = f"Regarding {subject_name}: {question}"
-    logger.info(f"Router query: {question}")
-    response = router.query(question)
-    return str(response)
+async def query_profile(
+    router: RouterQueryEngine,
+    question: str,
+    subject_name: str = None,
+) -> ProfileAnswerOutput:
+    """
+    Direct router query — returns a typed ProfileAnswerOutput.
+    No agent, no memory. For stateless single questions.
+    """
+    llm = get_llm()
+    full_question = f"Regarding {subject_name}: {question}" if subject_name else question
 
+    logger.info(f"[QueryEngine] Router query: {full_question}")
 
-async def query_profile_agentic(agent: FunctionAgent, question: str) -> str:
-    """Agentic query — uses memory for follow-up questions."""
-    logger.info(f"Agentic query: {question}")
-    response = await agent.run(
-        question,
-        max_iterations=5,
-        early_stopping_method="generate"
+    # Step 1: retrieve context via router
+    raw_response = router.query(full_question)
+    context = str(raw_response)
+
+    # Step 2: structured output
+    result: ProfileAnswerOutput = await llm.astructured_predict(
+        ProfileAnswerOutput,
+        _QA_PROMPT,
+        context_str=context,
+        query_str=question,
     )
-    return str(response)
 
+    return result
+
+
+async def query_profile_agentic(
+    agent: FunctionAgent,
+    question: str,
+) -> ProfileAnswerOutput:
+    """
+    Agentic query — uses memory for follow-up questions.
+    Returns a typed ProfileAnswerOutput.
+    """
+    llm = get_llm()
+
+    logger.info(f"[QueryEngine] Agentic query: {question}")
+
+    # Step 1: agent retrieves context (with memory)
+    raw_response = await agent.run(question)
+    context = str(raw_response)
+
+    # Step 2: structured output
+    result: ProfileAnswerOutput = await llm.astructured_predict(
+        ProfileAnswerOutput,
+        _QA_PROMPT,
+        context_str=context,
+        query_str=question,
+    )
+
+    return result

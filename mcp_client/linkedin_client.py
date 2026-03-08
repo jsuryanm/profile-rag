@@ -1,85 +1,77 @@
-import asyncio 
-from src.config.logger import logger 
-from src.config.settings import settings 
-
-from llama_index.tools.mcp import BasicMCPClient,McpToolSpec
+import json
+from llama_index.tools.mcp import BasicMCPClient, McpToolSpec
 from llama_index.core.agent.workflow import FunctionAgent
+from llama_index.core.prompts import PromptTemplate
+from src.config.logger import logger
 from src.llm.llm_interface import get_llm
+from src.schemas.agent_outputs import LinkedInProfileOutput
+from src.config.settings import settings
 
-# FunctionAgent is a tool-using agent (it decides when and which tool call,args to send)
-# McpToolspec converts mcp tools to llamaindex tools
+
+# Prompt template for structured_predict
+_PROFILE_PROMPT = PromptTemplate(
+    """You are a LinkedIn profile research assistant.
+
+Using ONLY the raw profile data below, extract and structure
+all available information. If a field is not present, use null.
+
+Raw profile data:
+{raw_profile}
+"""
+)
+
 
 async def get_linkedin_agent() -> FunctionAgent:
-    """
-    Connects to the LinkedIn MCP server and returns a LlamaIndex
-    FunctionAgent that can call LinkedIn tools based on user intent.
-    """
     mcp_client = BasicMCPClient(settings.mcp_server_url)
     mcp_tool_spec = McpToolSpec(client=mcp_client)
     tools = await mcp_tool_spec.to_tool_list_async()
 
     logger.info(
-        f"Loaded {len(tools)} tools from LinkedIn MCP server: "
+        f"Loaded {len(tools)} tools from Gradio MCP: "
         f"{[t.metadata.name for t in tools]}"
     )
+
     llm = get_llm()
-    agent = FunctionAgent(tools=tools,
-                          llm=llm,
-                          system_prompt="""You are a LinkedIn profile research assistant. 
-                          When fetching and returning the profile data, you must always:
-                          1. Use the available tools to fetch requested profile data.
-                          2. Deduplicate all content - if a piece of information appears more than once, include it only once.
-                          3. Return ONLY a valid JSON object with no markdown, no code blocks, no extra explanation.
-                          4. Always structure the response in this format: 
-                          
-                          {
-                            "name": "full name",
-                            "headline": "current job title and company",
-                            "location": "city, country",
-                            "current_role": {
-                                "title": "job title",
-                                "company": "company name",
-                                "duration": "start date to present"
-                            },
-                            "experience": [
-                                {
-                                    "title": "job title",
-                                    "company": "company name",
-                                    "duration": "date range"
-                                }
-                            ],
-                            "education": [
-                                {
-                                    "school": "school name",
-                                    "degree": "degree and field",
-                                    "years": "year range"
-                                }
-                            ]
-                        }"""
-                        )
-    
+
+    # Agent only handles retrieval — structured output is handled
+    # separately by astructured_predict() in fetch_profile_agent()
+    agent = FunctionAgent(
+        tools=tools,
+        llm=llm,
+        system_prompt="""You are a LinkedIn profile research assistant.
+        Use the available tools to fetch the profile from the given URL.
+        Return the raw fetched content as plain text — do not format or
+        summarise it. The caller will handle structuring.""",
+    )
     return agent
 
-async def fetch_profile_agent(user_query: str, linkedin_url: str) -> str:
+
+async def fetch_profile_agent(
+    user_query: str,
+    linkedin_url: str,
+) -> LinkedInProfileOutput:
     """
-    Main entry point: given a user query and LinkedIn URL,
-    the agent decides which MCP tool(s) to call and returns the raw result.
+    Phase 1 — Agent fetches raw profile data via MCP tool.
+    Phase 2 — astructured_predict() parses it into LinkedInProfileOutput.
+
+    Returns:
+        LinkedInProfileOutput — validated Pydantic model.
     """
+    llm = get_llm()
     agent = await get_linkedin_agent()
+
+    # Phase 1: raw retrieval
     prompt = f"LinkedIn profile URL: {linkedin_url}\nUser request: {user_query}"
-    response = await agent.run(prompt)
-    raw = str(response).strip()
+    logger.info(f"[LinkedInClient] Phase 1: fetching profile for {linkedin_url}")
+    raw = str(await agent.run(prompt)).strip()
 
-    # strip accidental markdown
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    raw = raw.strip()
+    # Phase 2: structured output
+    logger.info("[LinkedInClient] Phase 2: structured_predict → LinkedInProfileOutput")
+    result: LinkedInProfileOutput = await llm.astructured_predict(
+        LinkedInProfileOutput,
+        _PROFILE_PROMPT,
+        raw_profile=raw,
+    )
 
-    try:
-        import json
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        logger.warning("LLM did not return valid JSON, returning raw string")
-        return {"raw": raw}
+    logger.info(f"[LinkedInClient] Profile parsed for: {result.name}")
+    return result
