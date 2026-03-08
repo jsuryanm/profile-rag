@@ -1,10 +1,24 @@
 import json 
 from llama_index.tools.mcp import BasicMCPClient,McpToolSpec
 from llama_index.core.agent import FunctionAgent
-
+from src.schemas.agent_outputs import JobPostingOutput
+from llama_index.core.prompts import PromptTemplate
 from src.config.settings import settings 
 from src.config.logger import logger 
 from src.llm.llm_interface import get_llm 
+
+_JOB_PROMPT = PromptTemplate(
+"""
+You are a LinkedIn job posting parser.
+
+Using ONLY the raw job posting text below, extract structured data.
+
+If a field is missing return null or an empty list.
+
+Raw Job Posting:
+{raw_job}
+"""
+)
 
 async def get_job_agent() -> FunctionAgent:
 
@@ -36,6 +50,13 @@ async def get_job_agent() -> FunctionAgent:
 
         Always call the available tool to retrieve the job posting.
 
+        IMPORTANT: Return ONLY a raw JSON object. 
+        - No markdown formatting
+        - No code fences (no ```)  
+        - No explanation text before or after
+        - Start your response with { and end with }
+
+
         Return ONLY a valid JSON object with this schema:
 
         {
@@ -60,6 +81,8 @@ async def get_job_agent() -> FunctionAgent:
 
     return agent
 
+
+
 async def fetch_job_posting(job_url: str) -> dict:
 
     if "/jobs/view/" not in job_url:
@@ -71,6 +94,7 @@ async def fetch_job_posting(job_url: str) -> dict:
     logger.info(f"Fetching job posting URL: {job_url}")
 
     agent = await get_job_agent()
+    llm = get_llm()
 
     prompt = f"""
     You MUST call the tool `get_job_details`.
@@ -78,35 +102,24 @@ async def fetch_job_posting(job_url: str) -> dict:
     Arguments:
     url = "{job_url}"
 
-    Return ONLY structured JSON.
+    Return the FULL job posting text.
+    Do NOT format it as JSON.
     """
 
-    response = await agent.run(prompt)
+    # Step 1 — retrieve raw job posting
+    raw = str(await agent.run(prompt)).strip()
 
-    raw = str(response).strip()
+    logger.info("[JobClient] Phase 1 complete — raw job text retrieved")
 
-    if raw.startswith("```"):
-        raw = raw.split("```")[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
+    # Step 2 — structured output parsing
+    job: JobPostingOutput = await llm.astructured_predict(
+        JobPostingOutput,
+        _JOB_PROMPT,
+        raw_job=raw,
+    )
 
-    raw = raw.strip()
+    logger.info(
+        f"[JobClient] Parsed job: {job.job_title} @ {job.company}"
+    )
 
-    try:
-        data = json.loads(raw)
-
-        logger.info(
-            f"Successfully fetched job: "
-            f"{data.get('job_title')} @ {data.get('company')}"
-        )
-
-        return data
-
-    except json.JSONDecodeError:
-
-        logger.error(f"Job agent returned non-JSON response: {raw[:300]}")
-
-        raise ValueError(
-            f"MCP job agent did not return valid JSON for URL: {job_url}. "
-            f"Raw response (first 300 chars): {raw[:300]}"
-        )
+    return job.model_dump()

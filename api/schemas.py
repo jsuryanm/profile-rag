@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from src.agents.orchestrator import AnalysisResult
+from src.agents.supervisor_agent import SupervisorResult as AnalysisResult
 
 class LoadProfileRequest(BaseModel):
     linkedin_url: str
@@ -45,10 +45,6 @@ class LoadJobResponse(BaseModel):
     company: str
     location: str
     chunks_indexed: int
-
-
-class AnalyzeRequest(BaseModel):
-    quick: bool = False  # True = fit score only, False = full pipeline
 
 
 class StatusResponse(BaseModel):

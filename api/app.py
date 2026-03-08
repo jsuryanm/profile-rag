@@ -30,7 +30,7 @@ def health():
     }
 
 
-@app.post("/profile", response_model=LoadProfileResponse)
+@app.post("/profile/load", response_model=LoadProfileResponse)
 async def load_profile_endpoint(request: LoadProfileRequest):
     try:
         result = await load_profile(request.linkedin_url)
@@ -40,7 +40,6 @@ async def load_profile_endpoint(request: LoadProfileRequest):
     except Exception as e:
         logger.error(f"Failed to load profile: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.post("/ask", response_model=AskResponse)
 async def ask_endpoint(request: AskRequest):

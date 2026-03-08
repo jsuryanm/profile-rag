@@ -2,21 +2,19 @@ from pathlib import Path
 
 from src.config.logger import logger
 from src.processing.resume_processing import process_resume
+
 from src.rag.resume_index import (
     build_resume_tool,
     build_job_tool,
     process_job_posting,
 )
 
-from mcp_client.job_client import fetch_job_posting
-
-from src.agents.orchestrator import (
-    run_full_analysis,
-    run_fit_score_only,
-    AnalysisResult,
-)
+from src.agents.supervisor_agent import run_supervisor_pipeline
+from src.agents.orchestrator import run_fit_score_only
 
 from src.schemas.agent_outputs import FitAnalysisOutput
+
+from mcp_client.job_client import fetch_job_posting
 
 
 _state: dict = {
@@ -29,7 +27,9 @@ _state: dict = {
 }
 
 
-
+# ---------------------------------------------------
+# LOAD RESUME
+# ---------------------------------------------------
 async def load_resume(pdf_path: str, candidate_name: str = None) -> dict:
 
     pdf_path = Path(pdf_path)
@@ -59,6 +59,9 @@ async def load_resume(pdf_path: str, candidate_name: str = None) -> dict:
     }
 
 
+# ---------------------------------------------------
+# LOAD JOB
+# ---------------------------------------------------
 async def load_job(job_url: str) -> dict:
 
     logger.info(f"[ResumeService] Fetching job posting: {job_url}")
@@ -88,6 +91,9 @@ async def load_job(job_url: str) -> dict:
     }
 
 
+# ---------------------------------------------------
+# ANALYZE RESUME
+# ---------------------------------------------------
 async def analyze_resume(quick: bool = False) -> dict:
 
     _assert_both_loaded()
@@ -99,6 +105,9 @@ async def analyze_resume(quick: bool = False) -> dict:
     resume_tool = _state["resume_tool"]
     job_tool = _state["job_tool"]
 
+    # --------------------------------
+    # QUICK MODE
+    # --------------------------------
     if quick:
 
         logger.info("[ResumeService] Running quick fit score only")
@@ -111,17 +120,25 @@ async def analyze_resume(quick: bool = False) -> dict:
             company=company,
         )
 
+        _state["last_result"] = fit_analysis
+
         return {
             "mode": "quick",
-            "candidate_name": candidate_name,
-            "job_title": job_title,
-            "company": company,
-            "fit_analysis": fit_analysis.model_dump(),
+            "analysis": {
+                "candidate_name": candidate_name,
+                "job_title": job_title,
+                "company": company,
+                "fit_analysis": fit_analysis.model_dump(),
+            },
         }
 
-    logger.info("[ResumeService] Running full analysis pipeline")
+    # --------------------------------
+    # FULL PIPELINE (SupervisorAgent)
+    # --------------------------------
 
-    result: AnalysisResult = await run_full_analysis(
+    logger.info("[ResumeService] Running supervisor agent pipeline")
+
+    result = await run_supervisor_pipeline(
         resume_tool,
         job_tool,
         candidate_name=candidate_name,
@@ -133,42 +150,54 @@ async def analyze_resume(quick: bool = False) -> dict:
 
     return {
         "mode": "full",
-        "analysis": result.model_dump()
+        "analysis": result.model_dump(),
     }
 
 
+# ---------------------------------------------------
+# COVER LETTER
+# ---------------------------------------------------
 async def get_cover_letter() -> dict:
 
     if _state["last_result"] is None:
         logger.info("[ResumeService] No cached result — running full analysis")
         await analyze_resume()
 
-    result: AnalysisResult = _state["last_result"]
+    result = _state["last_result"]
 
     return {
         "candidate_name": _state["candidate_name"],
         "job_title": _state["job_title"],
         "company": _state["company"],
         "cover_letter": result.cover_letter.model_dump()
-        if result.cover_letter else {},
+        if result.cover_letter
+        else {},
     }
 
+
+# ---------------------------------------------------
+# CERT RECOMMENDATIONS
+# ---------------------------------------------------
 async def get_cert_recommendations() -> dict:
 
     if _state["last_result"] is None:
         logger.info("[ResumeService] No cached result — running full analysis")
         await analyze_resume()
 
-    result: AnalysisResult = _state["last_result"]
+    result = _state["last_result"]
 
     return {
         "candidate_name": _state["candidate_name"],
         "job_title": _state["job_title"],
         "cert_recommendations": result.cert_recommendations.model_dump()
-        if result.cert_recommendations else {},
+        if result.cert_recommendations
+        else {},
     }
 
 
+# ---------------------------------------------------
+# STATUS
+# ---------------------------------------------------
 def get_resume_status() -> dict:
 
     return {
@@ -181,6 +210,9 @@ def get_resume_status() -> dict:
     }
 
 
+# ---------------------------------------------------
+# INTERNAL CHECK
+# ---------------------------------------------------
 def _assert_both_loaded():
 
     if _state["resume_tool"] is None:

@@ -5,18 +5,18 @@ from pydantic import Field, ConfigDict
 
 class Settings(BaseSettings):
     # LLM
-    groq_api_key: str = Field(...,validation_alias="GROQ_API_KEY")
-    llm_model_id: str = "llama-3.3-70b-versatile"
+    openai_api_key: str = Field(...,validation_alias="OPENAI_API_KEY")
+    llm_model_id: str = "gpt-5-mini"
     model_config = ConfigDict(env_file=".env",extra="ignore")
     temperature: float = 0.0 
 
     # embeddings
-    embedding_model_id: str = "BAAI/bge-small-en-v1.5"
+    embedding_model_id: str = "text-embedding-3-small"
 
     # RAG 
-    chunk_size: int = 1024
-    chunk_overlap: int = 128
-    similarity_top_k: int = 3
+    chunk_size: int = 512
+    chunk_overlap: int = 50
+    similarity_top_k: int = 2
 
     # MCP SERVER
     mcp_server_url: str = "http://127.0.0.1:8080/mcp"
@@ -85,3 +85,4 @@ class Settings(BaseSettings):
 
 # Singleton — import this everywhere instead of re-instantiating
 settings = Settings()
+# print("OPENAI KEY:", settings.openai_api_key[:10])

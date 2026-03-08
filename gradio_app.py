@@ -38,9 +38,9 @@ def load_job(url):
     return f"""
 ### Job Loaded
 
-Role: **{data['job_title']}**
+**Role:** {data['job_title']}
 
-Company: **{data['company']}**
+**Company:** {data['company']}
 """
 
 
@@ -57,9 +57,12 @@ def run_analysis():
     if r.status_code != 200:
         return r.text, None
 
-    data = r.json()
+    data = r.json()["analysis"]
 
-    fit = data["analysis"]["fit_analysis"]
+    fit = data["fit_analysis"]
+    improvements = data.get("resume_improvements", {})
+    cover = data.get("cover_letter", {})
+    certs = data.get("cert_recommendations", {})
 
     score = fit["fit_score"]
 
@@ -68,14 +71,91 @@ def run_analysis():
         "Gap": 100 - score
     }
 
-    result_md = f"""
-## Fit Score: {score}/100
+    # ----------------------
+    # Resume Improvements
+    # ----------------------
+    improvements_text = ""
 
-### Strengths
+    if improvements:
+
+        improvements_text += "### Summary Improvements\n"
+        improvements_text += "\n".join(
+            [f"- {x}" for x in improvements.get("summary_improvements", [])]
+        )
+
+        improvements_text += "\n\n### Skills to Add\n"
+        for s in improvements.get("skills_to_add", []):
+            improvements_text += f"- **{s['skill']}** — {s['how_to_demonstrate']}\n"
+
+        improvements_text += "\n### Keywords to Include\n"
+        improvements_text += "\n".join(
+            [f"- {k}" for k in improvements.get("keywords_to_include", [])]
+        )
+
+        improvements_text += "\n\n### Sections to Add\n"
+        improvements_text += "\n".join(
+            [f"- {s}" for s in improvements.get("sections_to_add", [])]
+        )
+
+        improvements_text += f"\n\n**Top Priority:** {improvements.get('overall_priority','')}"
+
+    # ----------------------
+    # Cover Letter
+    # ----------------------
+    cover_text = cover.get("cover_letter", "No cover letter generated.")
+
+    # ----------------------
+    # Certifications
+    # ----------------------
+    cert_text = ""
+
+    for cert in certs.get("certifications", []):
+        cert_text += f"""
+**{cert['name']}**
+
+Provider: {cert['provider']}  
+Skill Addressed: {cert['addresses_skill']}  
+Duration: {cert['estimated_duration']}  
+Priority: {cert['priority']}
+
+---
+"""
+
+    for course in certs.get("online_courses", []):
+        cert_text += f"""
+**{course['name']}**
+
+Platform: {course['platform']}  
+Skill Addressed: {course['addresses_skill']}  
+Duration: {course['estimated_duration']}  
+Priority: {course['priority']}
+
+---
+"""
+
+    result_md = f"""
+# Fit Score: {score}/100
+
+## Strengths
 {', '.join(fit['strengths'])}
 
-### Weaknesses
+## Weaknesses
 {', '.join(fit['weaknesses'])}
+
+---
+
+# Resume Improvements
+{improvements_text}
+
+---
+
+# Cover Letter
+{cover_text}
+
+---
+
+# Recommended Certifications
+{cert_text}
 """
 
     return result_md, chart
@@ -88,7 +168,7 @@ def analyze_profile(url):
 
     r = requests.post(
         f"{API}/profile/load",
-        json={"profile_url": url}
+        json={"linkedin_url": url}
     )
 
     if r.status_code != 200:
@@ -99,10 +179,11 @@ def analyze_profile(url):
     return f"""
 ### Profile Loaded
 
-Name: **{data['full_name']}**
+**Name:** {data['name']}
 
-Skills:
-{', '.join(data.get('skills', []))}
+**Headline:** {data.get('headline','')}
+
+**Location:** {data.get('location','')}
 """
 
 
@@ -112,7 +193,7 @@ Skills:
 def chat_profile(message, history):
 
     r = requests.post(
-        f"{API}/profile/ask",
+        f"{API}/ask",
         json={"question": message}
     )
 
@@ -151,7 +232,7 @@ with gr.Blocks(title="Profile RAG") as app:
 
                     upload_btn = gr.Button("Upload Resume")
 
-                    upload_out = gr.Textbox()
+                    upload_out = gr.Textbox(label="Status", interactive=False)
 
                     upload_btn.click(
                         upload_resume,

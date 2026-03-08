@@ -6,7 +6,7 @@ from llama_index.core.tools import QueryEngineTool
 from llama_index.core.agent.workflow import FunctionAgent
 from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.vector_stores.chroma import ChromaVectorStore
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.embeddings.openai import OpenAIEmbedding
 
 from src.config.settings import settings
 from src.config.logger import logger
@@ -79,7 +79,8 @@ def build_router_query_engine(nodes: list, subject_name: str = "this person") ->
     """
     llm = get_llm()
     Settings.llm = llm
-    Settings.embed_model = HuggingFaceEmbedding(model_name=settings.embedding_model_id)
+    Settings.embed_model = OpenAIEmbedding(model=settings.embedding_model_id,
+                                           api_key=settings.openai_api_key)
 
     index = _build_index(nodes)
 

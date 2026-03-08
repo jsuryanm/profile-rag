@@ -53,44 +53,42 @@ def load_pdf_resume(pdf_path: str | Path) -> list:
     logger.info(f"PDFReader loaded {len(documents)} pages from {pdf_path.name}")
     return documents
 
-def chunk_resume(documents: list,extra_metadata: dict = None) -> list[TextNode]:
-    """
-    Splits PDF documents into SentenceSplitter nodes and tags each node
-    with a detected section label.
-
-    Args:
-        documents:      List of Document objects from load_pdf_resume().
-        extra_metadata: Additional key-value pairs merged into every node
-                        (e.g. {"source": "resume", "candidate_name": "..."}).
-
-    Returns:
-        List of TextNode objects ready for indexing.
-    """
+def chunk_resume(documents: list, extra_metadata: dict = None) -> list[TextNode]:
 
     if not documents:
         raise ValueError("No documents provided to chunk_resume.")
-    
-    splitter = SentenceSplitter(chunk_size=settings.chunk_size,
-                                chunk_overlap=settings.chunk_overlap)
-    
+
+    splitter = SentenceSplitter(
+        chunk_size=settings.chunk_size,
+        chunk_overlap=settings.chunk_overlap
+    )
+
     nodes = splitter.get_nodes_from_documents(documents)
 
-    for node in nodes:
+    # Assign unique IDs and detect sections
+    for i, node in enumerate(nodes):
+
+        # Unique node ID (important when reusing Chroma collections)
+        node.id_ = f"{extra_metadata.get('candidate_name','candidate')}_{i}" if extra_metadata else f"candidate_{i}"
+
         section = _detect_section(node.get_content())
         node.metadata["section"] = section
+
         if extra_metadata:
             node.metadata.update(extra_metadata)
-    
-    section_counts: dict[str,int] = {}
+
+    section_counts: dict[str, int] = {}
+
     for node in nodes:
         s = node.metadata["section"]
-        section_counts[s] = section_counts.get(s,0) + 1
+        section_counts[s] = section_counts.get(s, 0) + 1
 
     logger.info(
         f"Resume chunked into {len(nodes)} nodes | "
         f"sections: {section_counts} | "
         f"chunk_size={settings.chunk_size} overlap={settings.chunk_overlap}"
     )
+
     return nodes
 
 def process_resume(pdf_path: str | Path, candidate_name: str = "candidate") -> list[TextNode]:

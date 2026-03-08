@@ -89,11 +89,11 @@ async def load_job_endpoint(request: LoadJobRequest):
 
 
 @resume_router.post("/analyze", response_model=AnalyzeResponse)
-async def analyze_endpoint(request: AnalyzeRequest):
+async def analyze_endpoint(quick: bool = False):
 
     try:
 
-        result = await analyze_resume(quick=request.quick)
+        result = await analyze_resume(quick=quick)
 
         return result
 
@@ -106,7 +106,6 @@ async def analyze_endpoint(request: AnalyzeRequest):
         logger.error(f"[ResumeRouter] analyze failed: {e}")
 
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @resume_router.get("/cover-letter")
 async def cover_letter_endpoint():
