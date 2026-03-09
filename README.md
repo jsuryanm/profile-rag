@@ -1,4 +1,4 @@
-# Profile RAG 
+# TalentRadar
 
 An End-to-End Agentic AI system that scrapes LinkedIn profiles via an MCP server, indexes them using RAG (Retrieval-Augmented Generation), and lets you ask natural language questions about a person — including career summaries, icebreaker questions, and networking tips.
 
