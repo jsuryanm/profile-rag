@@ -1,52 +1,72 @@
-# Profile RAG 🔍
+# Profile RAG 
 
-An end-to-end AI system that scrapes LinkedIn profiles via an MCP server, indexes them using RAG (Retrieval-Augmented Generation), and lets you ask natural language questions about a person — including career summaries, icebreaker questions, and networking tips.
+An End-to-End Agentic AI system that scrapes LinkedIn profiles via an MCP server, indexes them using RAG (Retrieval-Augmented Generation), and lets you ask natural language questions about a person — including career summaries, icebreaker questions, and networking tips.
+
+It also includes a full **Resume Analyzer** pipeline: upload a resume PDF, load a LinkedIn job posting, and get an AI-powered fit score, resume improvement suggestions, a tailored cover letter to send to the hiring team, and certification recommendations.
 
 ---
 
 ## Features
 
 - **LinkedIn Profile Scraping** via MCP server (browser-based, authenticated)
-- **RAG Pipeline** powered by LlamaIndex + ChromaDB for profile Q&A
-- **Router Query Engine** — automatically routes factual questions vs. report generation
+- **Job Posting Scraping** via MCP tool (`get_job_details`) from LinkedIn job URLs
+- **RAG Pipeline** powered by LlamaIndex + ChromaDB for profile and resume Q&A
+- **Router Query Engine** — automatically routes factual questions vs. profile report generation
 - **Agentic RAG** with conversation memory for follow-up questions
-- **FastAPI REST API** with `/profile` and `/ask` endpoints
+- **Resume Analyzer Pipeline** — multi-agent system for end-to-end resume analysis:
+  - Fit scoring (0–100) with rationale
+  - Includes a detailed breakdown of the strengths and weaknesses in the profile
+  - Resume improvement suggestions 
+  - Cover letter generation for hiring team
+  - Certification recommendations for strengthening profile
+- **Supervisor Agent** — orchestrates parallel recommendation agents with safe error handling
+- **FastAPI REST API** with `/profile`, `/ask`, and `/resume/*` endpoints
+- **Gradio UI** — browser-based dashboard for all features
 - **RAG Evaluation** using LlamaIndex's `FaithfulnessEvaluator` and `RelevancyEvaluator`
 
 ---
 
 ## Architecture
-
 ```
-User Request
+User Request (Gradio UI or REST API)
      │
      ▼
 FastAPI (api/app.py)
      │
-     ▼
-ProfileService (src/services/profile_service.py)
-     │
-     ├──► LinkedIn MCP Client (mcp_client/linkedin_client.py)
+     ├──► ProfileService (src/services/profile_service.py)
      │         │
-     │         ▼
-     │    LinkedIn MCP Server (browser scraping via Patchright)
-     │
-     ├──► Data Processing (src/processing/data_processing.py)
+     │         ├── LinkedIn MCP Client (mcp_client/linkedin_client.py)
+     │         │         └── LinkedIn MCP Server (Patchright browser scraping)
      │         │
-     │         ▼
-     │    JSONReader → SentenceSplitter → Nodes
-     │
-     ├──► Query Engine (src/rag/query_engine.py)
+     │         ├── Data Processing (src/processing/data_processing.py)
+     │         │         └── JSONReader → SentenceSplitter → Nodes
      │         │
-     │         ├── ChromaDB Vector Index
-     │         ├── RouterQueryEngine
-     │         │     ├── profile_qa    (factual questions)
-     │         │     └── profile_report (summaries, icebreakers, networking)
-     │         └── FunctionAgent (agentic mode with memory)
+     │         └── Query Engine (src/rag/query_engine.py)
+     │                   ├── ChromaDB Vector Index
+     │                   ├── RouterQueryEngine
+     │                   │     ├── profile_qa    (factual questions)
+     │                   │     └── profile_report (summaries, icebreakers, networking)
+     │                   └── FunctionAgent (agentic mode with memory)
      │
-     └──► Eval (src/rag/eval.py)
-               ├── FaithfulnessEvaluator
-               └── RelevancyEvaluator
+     └──► ResumeService (src/services/resume_service.py)
+               │
+               ├── Resume Processing (src/processing/resume_processing.py)
+               │         └── PDFReader → SentenceSplitter → section-tagged TextNodes
+               │
+               ├── Job Client (mcp_client/job_client.py)
+               │         └── MCP tool: get_job_details → JobPostingOutput
+               │
+               ├── Resume Index (src/rag/resume_index.py)
+               │         ├── ChromaDB: resume collection
+               │         └── ChromaDB: job_posting collection
+               │
+               └── Supervisor Agent (src/agents/supervisor_agent.py)
+                         ├── Retrieval Agent   → parallel resume + job context fetch
+                         ├── Job Match Agent   → fit score + skill gap analysis
+                         └── Recommendations Agent (parallel)
+                               ├── Resume Improvements
+                               ├── Cover Letter
+                               └── Certification Recommendations
 ```
 
 ---
@@ -55,44 +75,63 @@ ProfileService (src/services/profile_service.py)
 
 | Component | Technology |
 |---|---|
-| LLM | Groq (`llama-3.3-70b-versatile`) |
-| Embeddings | HuggingFace (`BAAI/bge-small-en-v1.5`) |
+| LLM | OpenAI (`gpt-4o-mini` or configurable) |
+| Embeddings | OpenAI (`text-embedding-3-small`) |
 | RAG Framework | LlamaIndex |
 | Vector Store | ChromaDB (persistent) |
-| MCP Client | `llama-index-tools-mcp` v0.4.8 |
+| MCP Client | `llama-index-tools-mcp` |
 | MCP Server | `linkedin-scraper-mcp` (local clone) |
 | API | FastAPI |
+| UI | Gradio |
 | Settings | Pydantic Settings |
+| PDF Parsing | LlamaIndex `PDFReader` |
 
 ---
 
 ## Project Structure
-
 ```
 profile-rag/
 ├── api/
-│   └── app.py                  # FastAPI app with /health, /profile, /ask endpoints
+│   ├── app.py                      # FastAPI app — /health, /profile/load, /ask
+│   ├── resume_router.py            # Resume API router — /resume/* endpoints
+│   └── schemas.py                  # Pydantic request/response schemas
 ├── mcp_client/
-│   └── linkedin_client.py      # MCP client + FunctionAgent for LinkedIn scraping
+│   ├── linkedin_client.py          # MCP client + FunctionAgent for LinkedIn scraping
+│   └── job_client.py               # MCP client for LinkedIn job posting scraping
 ├── src/
 │   ├── config/
-│   │   ├── settings.py         # Pydantic settings (env vars, prompts, RAG config)
-│   │   └── logger.py           # Logging setup
+│   │   ├── settings.py             # Pydantic settings (env vars, prompts, RAG config)
+│   │   └── logger.py               # Logging setup
 │   ├── processing/
-│   │   └── data_processing.py  # JSON loading, chunking pipeline
+│   │   ├── data_processing.py      # JSON loading, chunking pipeline (profiles)
+│   │   └── resume_processing.py    # PDF loading, section-tagged chunking (resumes)
 │   ├── rag/
-│   │   ├── query_engine.py     # RouterQueryEngine + FunctionAgent + ChromaDB
-│   │   └── eval.py             # RAG evaluation (faithfulness + relevancy)
+│   │   ├── query_engine.py         # RouterQueryEngine + FunctionAgent + ChromaDB
+│   │   ├── resume_index.py         # Resume + job posting ChromaDB indexing + tools
+│   │   └── eval.py                 # RAG evaluation (faithfulness + relevancy)
 │   ├── llm/
-│   │   └── llm_interface.py    # Cached Groq LLM singleton
-│   └── services/
-│       └── profile_service.py  # Orchestrates fetch → index → query flow
+│   │   └── llm_interface.py        # Cached OpenAI LLM singleton (registry pattern)
+│   ├── agents/
+│   │   ├── supervisor_agent.py     # Orchestrates the full resume analysis pipeline
+│   │   ├── orchestrator.py         # Quick fit-score-only pipeline
+│   │   ├── job_match_agent.py      # Structured fit analysis (score + skill gaps)
+│   │   ├── retrieval_agent.py      # Parallel resume + job context retrieval
+│   │   └── recommendations_agent.py # Resume improvements, cover letter, certs
+│   ├── services/
+│   │   ├── profile_service.py      # Orchestrates LinkedIn fetch → index → query
+│   │   └── resume_service.py       # Orchestrates resume + job loading and analysis
+│   └── schemas/
+│       ├── agent_outputs.py        # All structured Pydantic output models
+│       └── fit_analysis.py         # Fit analysis schema
+├── gradio_app.py                   # Gradio UI (Resume Analyzer + Profile Q&A tabs)
+├── template.py                     # Project scaffolding script
 ├── tests/
-│   ├── test_router.py          # Tests router Q&A and report generation
-│   ├── test_eval.py            # Runs RAG evaluation against a live profile
-│   └── test_mcp_tools.py       # Tests MCP tool connectivity
-├── linkedin-mcp-server/        # Local clone of the LinkedIn MCP server
-├── .env                        # Environment variables (not committed)
+│   ├── test_mcp_client.py
+│   ├── test_mcp_tools.py
+│   ├── test_rag.py
+│   ├── test_router.py
+│   └── test_process_profile.py
+├── .env                            # Environment variables (not committed)
 ├── pyproject.toml
 └── README.md
 ```
@@ -105,10 +144,10 @@ profile-rag/
 
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/) package manager
-- A Groq API key ([console.groq.com](https://console.groq.com))
+- An OpenAI API key ([platform.openai.com](https://platform.openai.com))
+- Note: Open source llm's can be used for the task as well but you may need to adjust settings.py file accordingly to address rate limiting. For this reason I have used OpenAI LLM.
 
 ### 1. Clone and Install
-
 ```bash
 git clone https://github.com/jsuryanm/profile-rag.git
 cd profile-rag
@@ -116,7 +155,6 @@ uv sync
 ```
 
 ### 2. Install the LinkedIn MCP Server
-
 ```bash
 git clone https://github.com/stickerdaniel/linkedin-mcp-server.git
 cd linkedin-mcp-server
@@ -126,14 +164,12 @@ cd ..
 
 ### 3. Configure Environment
 
-Create a `.env` file in the project root and store your groq api key:
-
+Create a `.env` file in the project root:
 ```env
-GROQ_API_KEY=your_groq_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 ### 4. LinkedIn Login (One-Time Setup)
-
 ```bash
 uvx linkedin-scraper-mcp --login
 ```
@@ -147,169 +183,139 @@ This opens a browser for manual LinkedIn login. The session is saved to `~/.link
 ## Running the Project
 
 ### Step 1: Start the LinkedIn MCP Server
-
 ```bash
 uv run -m linkedin_mcp_server --transport streamable-http --host 127.0.0.1 --port 8080 --path /mcp
 ```
 
-### Step 2: Open another terminal and start the FastAPI Server
-
+### Step 2: Start the FastAPI Server
 ```bash
 uvicorn api.app:app --reload --port 8000
 ```
 
+### Step 3: Launch the Gradio UI
+```bash
+python gradio_app.py
+```
+
+The Gradio dashboard will be available at `http://127.0.0.1:7860` with two tabs:
+
+- **Resume Analyzer** — upload a resume PDF, load a job URL, run full analysis
+- **Profile Analyzer** — load a LinkedIn profile and chat with it
+
 ---
 
-## API Usage
+## API Reference
 
-### Load a Profile
+### Profile Endpoints
 
-```bash
-POST /profile
-{
-  "linkedin_url": "https://www.linkedin.com/in/username/"
-}
+#### Load a Profile
+```
+POST /profile/load
+{ "linkedin_url": "https://www.linkedin.com/in/username/" }
 ```
 
-**Response:**
-```json
-{
-  "status": "loaded",
-  "name": "John Doe",
-  "headline": "Senior Engineer at Acme",
-  "location": "Singapore",
-  "chunks_indexed": 4
-}
+#### Ask a Question
 ```
-
-### Ask a Question
-
-```bash
 POST /ask
-{
-  "question": "What is his current role?",
-  "use_agent": false
-}
-```
-
-**Response:**
-```json
-{
-  "question": "What is his current role?",
-  "answer": "John is a Senior Engineer at Acme Corp.",
-  "profile": "John Doe",
-  "mode": "router"
-}
+{ "question": "What is his current role?", "use_agent": false }
 ```
 
 Set `use_agent: true` for follow-up conversations with memory.
 
-### Health Check
-
-```bash
+#### Health Check
+```
 GET /health
 ```
 
 ---
 
-## Query Modes
+### Resume Endpoints
 
-| Mode | `use_agent` | Description |
-|---|---|---|
-| Router (default) | `false` | Stateless. Routes between QA and report tools automatically |
-| Agentic | `true` | Adds conversation memory for follow-up questions |
+#### Upload a Resume
+```
+POST /resume/load          (multipart PDF, optional ?candidate_name=)
+POST /resume/load-job      { "job_url": "https://www.linkedin.com/jobs/view/..." }
+POST /resume/analyze       (?quick=false for full pipeline, ?quick=true for score only)
+GET  /resume/cover-letter
+GET  /resume/certifications
+GET  /resume/status
+```
 
-### Router Tool Selection
-
-The `RouterQueryEngine` automatically picks the right tool:
-
-| Question Type | Tool Selected | Examples |
-|---|---|---|
-| Factual | `profile_qa` | Current role, location, education, companies |
-| Analytical | `profile_report` | Career summary, icebreakers, networking tips |
+**Full analysis response includes:** fit score, skill gaps, resume improvements, cover letter, and certification recommendations — all as structured Pydantic output.
 
 ---
 
-## Running Tests
-
-```bash
-# Test the router (factual + complex questions)
-python -m tests.test_router
-
-# Test RAG evaluation
-python -m tests.test_eval
-
-# Test MCP tool connectivity
-python -m tests.test_mcp_tools
+## Analysis Pipeline (Resume Analyzer)
+```
+1. Retrieval Agent     — parallel fetch of resume + job context
+2. Job Match Agent     — structured fit score + skill gap analysis
+3. Supervisor Agent    — spawns 3 parallel agents:
+   ├── Resume Improvements
+   ├── Cover Letter
+   └── Certification Recommendations
 ```
 
----
-
-## RAG Evaluation
-
-Evaluation runs automatically in the background after every `/profile` load. Results are logged to `logs/`.
-
-To run evaluation manually:
-
-```bash
-python -m tests.test_eval
-```
-
-**Metrics:**
-
-| Metric | Description |
-|---|---|
-| **Faithfulness** | Is the answer grounded in retrieved context? (no hallucination) |
-| **Relevancy** | Does the answer address what was asked in the question? |
-
-**Example output:**
-```
-faithfulness avg score: 1.00 (5 queries)
-relevancy avg score: 0.80 (5 queries)
-
-Q5: passing=False | score=0.0
-    feedback: Response calculates experience from incomplete context
-```
-
-> A relevancy failure on "years of experience" questions is expected — this requires arithmetic across chunks and is a known RAG limitation. Use factual questions for reliable evaluation.
+All agents use `astructured_predict()` for typed Pydantic output. Agent failures are caught safely — the pipeline always completes.
 
 ---
 
 ## Configuration
 
-All settings are in `src/config/settings.py` and can be overridden via `.env`:
+All settings in `src/config/settings.py`, overridable via `.env`:
 
 | Setting | Default | Description |
 |---|---|---|
-| `GROQ_API_KEY` | required | Groq API key |
-| `llm_model_id` | `llama-3.3-70b-versatile` | Groq model |
-| `embedding_model_id` | `BAAI/bge-small-en-v1.5` | HuggingFace embedding model |
+| `OPENAI_API_KEY` | required | OpenAI API key |
+| `llm_model_id` | `gpt-4o-mini` | OpenAI model |
+| `embedding_model_id` | `text-embedding-3-small` | OpenAI embedding model |
 | `chunk_size` | `512` | RAG chunk size |
-| `chunk_overlap` | `64` | RAG chunk overlap |
-| `similarity_top_k` | `3` | Number of chunks retrieved per query |
+| `chunk_overlap` | `50` | RAG chunk overlap |
+| `similarity_top_k` | `2` | Chunks retrieved per query |
 | `mcp_server_url` | `http://127.0.0.1:8080/mcp` | LinkedIn MCP server URL |
 | `temperature` | `0.0` | LLM temperature |
 
 ---
 
+## RAG Evaluation
+
+Runs automatically in the background after every `/profile/load`. Results logged to `logs/`.
+
+| Metric | Description |
+|---|---|
+| **Faithfulness** | Answer grounded in retrieved context (no hallucination) |
+| **Relevancy** | Answer addresses what was asked |
+
+---
+
+## Current Status
+
+| Feature | Status |
+|---|---|
+| Resume Analyzer (upload, analysis, cover letter, certs) | Stable |
+| Profile Analyzer — LinkedIn load | Working |
+| Profile Analyzer — Chat UI | 🔧 Under debugging |
+| REST API endpoints | Stable |
+
 ## Known Limitations
 
-- **LinkedIn Rate Limiting** — Scraping the same profile repeatedly within a short window will trigger rate limits. Wait 2-3 minutes between test runs.
-- **Groq TPM Limits** — The free tier is limited to 12,000 tokens/minute. Running eval immediately after a profile fetch can trigger 429 errors (auto-retried).
-- **Chunk Count** — Rich profiles with long experience histories may produce only 1-2 chunks at `chunk_size=512`. Increase to `1024` if answers seem incomplete.
-- **Windows + stdio** — The LinkedIn MCP server must be run as an HTTP server on Windows. stdio transport is not reliable due to stdout pollution from the browser engine.
+- **LinkedIn Rate Limiting** — wait 2–3 minutes between repeated profile fetches
+- **Latency** — The response time for the llm, resume evaluation can be upto 3-4 minutes.
+- **Scanned PDFs** — only text-based PDFs are supported
+- **Single-user state** — in-memory `_state` supports one active session at a time
+- **Windows + stdio** — use HTTP transport mode for the MCP server on Windows
 
 ---
 
 ## Roadmap
 
-- [ ] Job description analysis from LinkedIn job postings
-- [ ] Candidate vs. job fit scoring (0–100)
-- [ ] Skill gap identification
-- [ ] Resume improvement suggestions
-- [ ] Certification recommendations based on skill gaps
-- [ ] ReAct agent for multi-source reasoning (profile + job description + web search)
-- [ ] Docker Compose setup for one-command startup
+- [x] Job description analysis from LinkedIn job postings
+- [x] Fit scoring (0–100) with skill gap identification
+- [x] Resume improvements, cover letter, certification recommendations
+- [ ] Gradio UI dashboard debugging
+- [ ] Address latency response time issues
+- [ ] Docker Compose setup
+- [ ] Persistent session state across API restarts
+- [ ] Batch / multi-candidate analysis
 
 ---
 
